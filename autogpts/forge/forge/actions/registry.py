@@ -106,7 +106,7 @@ class ActionRegister:
 
     def register_abilities(self) -> None:
         for action_path in glob.glob(
-            os.path.join(os.path.dirname(__file__), "**/*.py"), recursive=True
+            os.path.join(os.path.dirname(__file__), "**","*.py"), recursive=True
         ):
             if not os.path.basename(action_path) in [
                 "__init__.py",
@@ -114,10 +114,10 @@ class ActionRegister:
             ]:
                 action = os.path.relpath(
                     action_path, os.path.dirname(__file__)
-                ).replace("/", ".")
+                ).replace(os.pathsep, ".")
                 try:
                     module = importlib.import_module(
-                        f".{action[:-3]}", package="forge.sdk.abilities"
+                        f".{action[:-3]}", package="forge.actions"
                     )
                     for attr in dir(module):
                         func = getattr(module, attr)
