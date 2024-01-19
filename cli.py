@@ -10,8 +10,12 @@ try:
 except ImportError:
     import os
 
-    os.system("pip3 install click")
-    os.system("pip3 install PyGithub")
+    if os.name=="posix":
+        os.system("pip3 install click")
+        os.system("pip3 install PyGithub")
+    elif os.name=="nt":
+        os.system("env\\Scripts\\pip install click")
+        os.system("env\\Scripts\\pip install PyGithub")
     import click
 
 
@@ -44,7 +48,10 @@ d88P     888  "Y88888  "Y888 "Y88P"   "Y8888P88 888           888
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    setup_script = os.path.join(script_dir, "setup.sh")
+    if (os.name == "posix"):
+        setup_script = os.path.join(script_dir, "setup.sh")
+    elif (os.name == "nt"):
+        setup_script = os.path.join(script_dir, "setup.bat")
     install_error = False
     if os.path.exists(setup_script):
         click.echo(click.style("🚀 Setup initiated...\n", fg="green"))
@@ -273,12 +280,20 @@ def start(agent_name, no_setup):
     run_bench_command = os.path.join(agent_dir, "run_benchmark")
     if os.path.exists(agent_dir) and os.path.isfile(run_command) and os.path.isfile(run_bench_command):
         os.chdir(agent_dir)
-        if not no_setup:
-            setup_process = subprocess.Popen(["./setup"], cwd=agent_dir)
-            setup_process.wait()
-        subprocess.Popen(["./run_benchmark", "serve"], cwd=agent_dir)
-        click.echo(f"Benchmark Server starting please wait...")
-        subprocess.Popen(["./run"], cwd=agent_dir)
+        if (os.name=="posix"):
+            if not no_setup:
+                setup_process = subprocess.Popen(["./setup"], cwd=agent_dir)
+                setup_process.wait()
+            subprocess.Popen(["./run_benchmark", "serve"], cwd=agent_dir)
+            click.echo(f"Benchmark Server starting please wait...")
+            subprocess.Popen(["./run"], cwd=agent_dir)
+        elif (os.name=="nt"):
+            if not no_setup:
+                setup_process = subprocess.Popen(["setup.bat"], cwd=agent_dir)
+                setup_process.wait()
+            subprocess.Popen(["run_benchmark.bat", "serve"], cwd=agent_dir)
+            click.echo(f"Benchmark Server starting please wait...")
+            subprocess.Popen(["run.bat"], cwd=agent_dir)
         click.echo(f"Agent '{agent_name}' starting please wait...")
     elif not os.path.exists(agent_dir):
         click.echo(
