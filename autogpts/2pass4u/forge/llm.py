@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from litellm import AuthenticationError, InvalidRequestError, ModelResponse, acompletion
@@ -17,6 +18,7 @@ async def chat_completion_request(model, messages, **kwargs) -> ModelResponse:
     try:
         kwargs["model"] = model
         kwargs["messages"] = messages
+        kwargs["api_base"] = os.getenv("OPENAI_API_BASE_URL")
 
         resp = await acompletion(**kwargs)
         return resp
@@ -38,6 +40,7 @@ async def create_embedding_request(
 ) -> CreateEmbeddingResponse:
     """Generate an embedding for a list of messages using OpenAI's API"""
     try:
+        OpenAI.base_url=os.getenv("OPENAI_API_BASE_URL")
         return OpenAI().embeddings.create(
             input=[f"{m['role']}: {m['content']}" for m in messages],
             model=model,
