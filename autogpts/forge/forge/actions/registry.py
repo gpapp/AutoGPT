@@ -114,7 +114,7 @@ class ActionRegister:
             ]:
                 action = os.path.relpath(
                     action_path, os.path.dirname(__file__)
-                ).replace(os.pathsep, ".")
+                ).replace(os.path.sep, ".")
                 try:
                     module = importlib.import_module(
                         f".{action[:-3]}", package="forge.actions"

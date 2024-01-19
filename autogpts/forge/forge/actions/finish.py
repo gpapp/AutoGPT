@@ -1,4 +1,4 @@
-from sdk.forge_log import ForgeLogger
+from ..sdk.forge_log import ForgeLogger
 
 from .registry import action
 
