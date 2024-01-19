@@ -20,7 +20,6 @@ LOG = ForgeLogger(__name__)
 
 from datetime import datetime
 
-
 class JSONEncoderWithBytes(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, bytes):
@@ -37,11 +36,12 @@ class ForgeAgent(Agent):
 
     def __init__(self, database: AgentDB, workspace: Workspace):
         super().__init__(database, workspace)
+
+        self.messages = [] 
         self.abilities = ActionRegister(self)
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         task = await super().create_task(task_request)
-        self.messages = [] 
         LOG.info(
             f"📦 Task created: {task.task_id} input: {task.input[:40]}{'...' if len(task.input) > 40 else ''}"
         )
