@@ -105,7 +105,7 @@ class PromptEngine:
             str: The populated template.
         """
         try:
-            template = os.path.join(self.model, template)
+            template = f"{self.model}/{template}"
             if self.debug_enabled:
                 LOG.debug(f"Loading template: {template}")
             template = self.env.get_template(f"{template}.j2")
