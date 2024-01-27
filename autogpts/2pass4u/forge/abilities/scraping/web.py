@@ -14,7 +14,7 @@ import json
 
 import re
 
-from ...forge_log import ForgeLogger
+from forge.sdk.forge_log import ForgeLogger
 from .web_selenium import search_internet_with_selenium, is_valid_url
 logger = ForgeLogger(__name__)
 

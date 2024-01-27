@@ -4,8 +4,7 @@ from typing import Dict, List, Union
 
 
 from ..registry import ability
-from sdk.forge_log import ForgeLogger
-
+from forge.sdk.forge_log import ForgeLogger
 
 logger = ForgeLogger(__name__)
 

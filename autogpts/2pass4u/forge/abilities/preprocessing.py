@@ -1,4 +1,4 @@
-from ..forge_log import ForgeLogger
+from forge.sdk.forge_log import ForgeLogger
 from ..llm import chat_completion_request
 from .registry import ability
 import json

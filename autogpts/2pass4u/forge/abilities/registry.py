@@ -117,7 +117,7 @@ class AbilityRegister:
                 ).replace(os.path.sep, ".")
                 try:
                     module = importlib.import_module(
-                        f".{ability[:-3]}", package="forge.sdk.abilities"
+                        f".{ability[:-3]}", package="forge.abilities"
                     )
                     for attr in dir(module):
                         func = getattr(module, attr)

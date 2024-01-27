@@ -3,11 +3,9 @@ import os
 import json
 
 from ..registry import ability
-from ...forge_log import ForgeLogger
-
+from forge.sdk.forge_log import ForgeLogger
 
 logger = ForgeLogger(__name__)
-
 
 @ability(
     name="list_files",

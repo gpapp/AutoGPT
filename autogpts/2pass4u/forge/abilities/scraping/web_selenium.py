@@ -10,8 +10,6 @@ import re
 from pathlib import Path
 from sys import platform
 from typing import Type, List, Tuple
-from ..registry import ability
-
 
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import WebDriverException
@@ -36,7 +34,6 @@ from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager as EdgeDriverManager
 
 
-from ..registry import ability
 from forge.sdk.errors import *
 import functools
 import re
