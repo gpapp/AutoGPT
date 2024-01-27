@@ -1,8 +1,11 @@
+import os
+import ast
 import json
 import asyncio
 import pprint
+import re
 
-from forge.actions import ActionRegister
+from forge.abilities import AbilityRegister
 from forge.sdk import (
     Agent,
     AgentDB,
@@ -30,7 +33,9 @@ class JSONEncoderWithBytes(json.JSONEncoder):
         return super().default(obj)
     
 class ForgeAgent(Agent):
-    MODEL_NAME = "gpt-3.5-turbo-16k"
+    MODEL_NAME = "oobabooga/local-llm"
+    BASE_URL = os.getenv("OPENAI_API_BASE_URL")
+    TWO_PASS = False
     RETRY_COUNT = 3
     RETRY_WAIT_SECONDS = 5  # wait for 5 seconds before retrying
 
@@ -38,7 +43,7 @@ class ForgeAgent(Agent):
         super().__init__(database, workspace)
 
         self.messages = [] 
-        self.abilities = ActionRegister(self)
+        self.abilities = AbilityRegister(self)
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         task = await super().create_task(task_request)
@@ -54,32 +59,60 @@ class ForgeAgent(Agent):
         )
 
         current_files = self.workspace.list(task_id, ".")
-
+        prompt_engine = PromptEngine(self.MODEL_NAME)
         if len(self.messages) < 2:
-            prompt_engine = PromptEngine(self.MODEL_NAME)
             system_kwargs = {
                 "abilities": self.abilities.list_abilities_for_prompt(),
                 "current_files": current_files
             }
             task_kwargs = {"task": task.input}
+            
             system_prompt = prompt_engine.load_prompt("system-format", **system_kwargs)
             self.messages = [{"role": "system", "content": system_prompt}]
             task_prompt = prompt_engine.load_prompt("task-step", **task_kwargs)
             self.messages.append({"role": "user", "content": task_prompt})
 
-        LOG.debug(f"\n\n\nSending the following messages to the model: {pprint.pformat(self.messages)}")
+        system_llm_kwargs = prompt_engine.get_model_parameters("system-format")
 
+        if self.TWO_PASS:
+            secpass_kwargs={
+                "abilities": self.abilities.list_abilities_for_prompt(),
+                "current_files": current_files,
+                "task": task.input} 
+            secpass_system_prompt = prompt_engine.load_prompt("second-pass-system", **secpass_kwargs)
+            secpass_system_llm_kwargs = prompt_engine.get_model_parameters("second-pass-system")
+
+        LOG.debug(f"\n\n\nSending the following messages to the model: {pprint.pformat(self.messages)}")
 
         for retry_attempt in range(self.RETRY_COUNT):
             try:
-                # Chat completion request
+                # Chat completion request                
                 chat_completion_kwargs = {
-                    "messages": self.messages,
-                    "model": self.MODEL_NAME
+                    "messages": self.messages,                    
+                    "model": self.MODEL_NAME,
+                    "api_base" : self.BASE_URL
                 }
-                chat_response = await chat_completion_request(**chat_completion_kwargs)
+                chat_completion_kwargs.update(system_llm_kwargs)
+                chat_response = await chat_completion_request(**chat_completion_kwargs)            
 
                 answer_content = chat_response["choices"][0]["message"]["content"]
+                if self.TWO_PASS:
+                    secpass_kwargs={"task": task.input, "answer": answer_content} 
+                    secpass_messages = [{"role": "system", "content": secpass_system_prompt}]
+                    secpass_user_prompt = prompt_engine.load_prompt("second-pass-user", **secpass_kwargs)
+                    secpass_messages.append({"role": "user", "content": secpass_user_prompt})
+                    secpass_chat_completion_kwargs = {
+                        "messages" : secpass_messages,
+                        "model" : self.MODEL_NAME,
+                        "api_base" : self.BASE_URL,
+                        "instruction_template": "Alpaca",
+                        "max_tokens" : 4096
+                    }
+                    secpass_chat_completion_kwargs.update(secpass_system_llm_kwargs)
+                    LOG.debug(f"\n\n\nSending the following messages to the model: {pprint.pformat(secpass_messages)}")
+                    chat_response = await chat_completion_request(**secpass_chat_completion_kwargs)                    
+                    answer_content = chat_response["choices"][0]["message"]["content"]
+
 
                 # Check if the content is already a dictionary (JSON-like structure)
                 if isinstance(answer_content, dict):
@@ -91,10 +124,10 @@ class ForgeAgent(Agent):
                             answer_content = answer_content.decode('utf-8')
                         
                         # Attempt to parse the content as JSON
-                        answer = json.loads(answer_content)
+                        answer = extract_dict_from_response(answer_content)
                         LOG.debug(f"\n\n\nanswer: {pprint.pformat(answer)}")
 
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
                         LOG.error(f"Unable to decode chat response: {chat_response}")
                         answer = None
 
@@ -151,3 +184,34 @@ class ForgeAgent(Agent):
             step.is_last = True
 
         return step
+
+def extract_dict_from_response(response_content: str) -> dict[str, any]:
+    # Sometimes the response includes the JSON in a code block with ```
+    pattern = r"```([\s\S]*?)```"
+    match = re.search(pattern, response_content)
+
+    if match:
+        response_content = match.group(1).strip()
+        # Remove language names in code blocks
+        response_content = response_content.lstrip("json")
+    else:
+        # The string may contain JSON.
+        json_pattern = r"{[\s\S]*}"
+        match = re.search(json_pattern, response_content)
+
+        if match:
+            response_content = match.group()
+
+    # Response content comes from OpenAI as a Python `str(content_dict)`.
+    # `literal_eval` does the reverse of `str(dict)`.
+    try:
+        result = ast.literal_eval(response_content)
+    except Exception as e:
+        result = json.loads(response_content)
+
+    if not isinstance(result, dict):
+        raise ValueError(
+            f"Response '''{response_content}''' evaluated to "
+            f"non-dict value {repr(result)}"
+        )
+    return result

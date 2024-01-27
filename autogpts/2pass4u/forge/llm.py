@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
 
-from litellm import AuthenticationError, InvalidRequestError, ModelResponse, acompletion
+from litellm import AuthenticationError, InvalidRequestError, ModelResponse, completion,aembedding
 from openai import OpenAI
 from openai.types import CreateEmbeddingResponse
 from openai.types.audio import Transcription
@@ -18,9 +17,10 @@ async def chat_completion_request(model, messages, **kwargs) -> ModelResponse:
     try:
         kwargs["model"] = model
         kwargs["messages"] = messages
-        kwargs["api_base"] = os.getenv("OPENAI_API_BASE_URL")
+        import litellm
+        litellm.set_verbose=True  
 
-        resp = await acompletion(**kwargs)
+        resp = completion(**kwargs)
         return resp
     except AuthenticationError as e:
         LOG.exception("Authentication Error")
@@ -40,8 +40,7 @@ async def create_embedding_request(
 ) -> CreateEmbeddingResponse:
     """Generate an embedding for a list of messages using OpenAI's API"""
     try:
-        OpenAI.base_url=os.getenv("OPENAI_API_BASE_URL")
-        return OpenAI().embeddings.create(
+        return await aembedding(
             input=[f"{m['role']}: {m['content']}" for m in messages],
             model=model,
         )

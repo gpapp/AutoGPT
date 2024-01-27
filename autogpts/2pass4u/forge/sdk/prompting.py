@@ -20,6 +20,7 @@ class PromptEngine:
 
 import glob
 import os
+import json
 from difflib import get_close_matches
 from typing import List
 
@@ -51,7 +52,7 @@ class PromptEngine:
         try:
             # Get the list of all model directories
             models_dir = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "../prompts")
+                os.path.join(os.path.dirname(__file__), "..","prompts")
             )
             model_names = [
                 os.path.basename(os.path.normpath(d))
@@ -115,3 +116,15 @@ class PromptEngine:
         except Exception as e:
             LOG.error(f"Error loading or rendering template: {e}")
             raise
+
+    def get_model_parameters(self,template:str)->dict:
+        retval={}
+        try:
+            f=open(os.path.join(os.path.dirname(__file__), "..","prompts",self.model,f"{template}.json"))
+            retval=json.load(fp=f)
+            f.close            
+        except Exception as e:
+            LOG.debug("Cannot load extra parameters for the LLM")
+            pass
+        return retval
+
