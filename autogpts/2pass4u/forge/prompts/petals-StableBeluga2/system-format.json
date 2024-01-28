@@ -1,6 +1,5 @@
 {
-    "api_base": "http://127.0.0.1:8080",
-    "instruction_template": "Alpaca",                    
+    "api_base": "http://localhost:5000/api/v2/generate",
     "max_tokens" : 4096,
     "temperature": 0.8,
     "top_p": 0.85,

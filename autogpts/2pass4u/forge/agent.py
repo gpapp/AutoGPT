@@ -33,8 +33,8 @@ class JSONEncoderWithBytes(json.JSONEncoder):
         return super().default(obj)
     
 class ForgeAgent(Agent):
-    MODEL_NAME = "oobabooga/local-llm"
-    BASE_URL = os.getenv("OPENAI_API_BASE_URL")
+    MODEL_NAME = "petals/bigscience/bloomz-petals"
+    MODEL_NAME = "petals/petals-team/StableBeluga2"
     TWO_PASS = False
     RETRY_COUNT = 3
     RETRY_WAIT_SECONDS = 5  # wait for 5 seconds before retrying
@@ -89,8 +89,7 @@ class ForgeAgent(Agent):
                 # Chat completion request                
                 chat_completion_kwargs = {
                     "messages": self.messages,                    
-                    "model": self.MODEL_NAME,
-                    "api_base" : self.BASE_URL
+                    "model": self.MODEL_NAME
                 }
                 chat_completion_kwargs.update(system_llm_kwargs)
                 chat_response = await chat_completion_request(**chat_completion_kwargs)            
@@ -103,10 +102,7 @@ class ForgeAgent(Agent):
                     secpass_messages.append({"role": "user", "content": secpass_user_prompt})
                     secpass_chat_completion_kwargs = {
                         "messages" : secpass_messages,
-                        "model" : self.MODEL_NAME,
-                        "api_base" : self.BASE_URL,
-                        "instruction_template": "Alpaca",
-                        "max_tokens" : 4096
+                        "model" : self.MODEL_NAME
                     }
                     secpass_chat_completion_kwargs.update(secpass_system_llm_kwargs)
                     LOG.debug(f"\n\n\nSending the following messages to the model: {pprint.pformat(secpass_messages)}")
@@ -133,15 +129,17 @@ class ForgeAgent(Agent):
 
                 # Ability Sequence Execution
                 ability_sequence = answer.get("abilities_sequence")
-                previous_output = None
+                last_output = False
+                previous_outputs = {}
 
                 for ability_item in ability_sequence:
                     ability = ability_item.get("ability", {})
                     LOG.debug("\n\nin the sequence %s", ability)
 
                     if "name" in ability and "args" in ability:
-                        if previous_output and ability["name"] != "finish":
-                            ability["args"].update({"input": previous_output})
+                        for (key,value) in previous_outputs:
+                            for dk in ability["args"]:
+                                ability["args"][dk]=str.replace(ability["args"][dk],f"{{key}}",value)
 
                         output = await self.abilities.run_ability(
                             task_id, ability["name"], **ability["args"]
@@ -153,16 +151,16 @@ class ForgeAgent(Agent):
                             output_str = output.decode('utf-8')
                         else:
                             output_str = output
-
                         if ability["name"] == "finish" or "File has been written successfully" in output_str:
                             step.is_last = True
                             step.status = "completed"
-
-                        previous_output = output
+                        if "output" in ability:
+                            previous_outputs[ability["output"]] = output
+                        last_output=output
 
                 step.output = answer.get("speak","")
-                if previous_output and isinstance(previous_output, str):
-                    answer["final_output"] = previous_output
+                if last_output and isinstance(last_output, str):
+                    answer["final_output"] = last_output
 
                 # If everything is successful, break out of the retry loop
                 LOG.info("\n\aanswer final %s", answer)

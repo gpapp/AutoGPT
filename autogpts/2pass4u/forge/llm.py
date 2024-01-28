@@ -1,6 +1,7 @@
+import re
 from pathlib import Path
 
-from litellm import AuthenticationError, InvalidRequestError, ModelResponse, completion,aembedding
+from litellm import AuthenticationError, InvalidRequestError, ModelResponse, completion, acompletion, aembedding
 from openai import OpenAI
 from openai.types import CreateEmbeddingResponse
 from openai.types.audio import Transcription
@@ -20,7 +21,10 @@ async def chat_completion_request(model, messages, **kwargs) -> ModelResponse:
         import litellm
         litellm.set_verbose=True  
 
-        resp = completion(**kwargs)
+        if re.match(string=model,pattern=r"oobabooga|petals"):
+            resp = completion(**kwargs)
+        else:
+            resp = await acompletion(**kwargs)
         return resp
     except AuthenticationError as e:
         LOG.exception("Authentication Error")

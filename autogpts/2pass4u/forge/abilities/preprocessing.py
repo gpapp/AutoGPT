@@ -6,6 +6,22 @@ import json
 logger = ForgeLogger(__name__)
 
 @ability(
+    name="plan",
+    description="Use this action to break down an larger task into smaller components.",
+    parameters=[
+        {
+            "name": "to_think",
+            "description": "The topic to think about",
+            "type": "string",
+            "required": True,
+        },
+    ],
+    output_type="string",
+)
+async def plan_ahead(agent, task_id: str, to_think) -> str:
+    pass
+
+@ability(
     name="process_data",
     description="Process data based on a specified transformation description, make sure to pass a very detailed description of the desired transformation. You can also pass multiple transformation commands. You must give examples of the desired outcome in the description.",
     parameters=[
