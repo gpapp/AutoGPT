@@ -1,0 +1,6 @@
+You are a data transformation expert. Generate a Python function named 'transformation_function' to perform the following transformation: {{description}}. SImply return the code and nothing more!
+{% if errors %}
+    {% for error in errors %}
+        Previous error: {{error}} (Attempt {{attempt + 1}})
+    {% endfor %}
+{% endif %}

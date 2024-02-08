@@ -1,4 +1,5 @@
 from forge.sdk.forge_log import ForgeLogger
+from forge.sdk.prompting import PromptEngine
 from ..llm import chat_completion_request
 from .registry import ability
 import json
@@ -32,11 +33,16 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
         input_str = json.dumps(input)
     else:
         input_str = str(input)
-        
+
+    prompt_engine = PromptEngine(agent.MODEL_NAME)
+    
     # Check input length for direct transformation
     if len(input_str) < 4000:
         try:
-            transformed_data = await direct_transformation_request(transformation_description, input_str)
+            ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", {"description":transformation_description,"input":input_str})
+            kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
+            kwargs.update({"model":agent.MODEL_NAME, "messages": [{"role": "system", "content": ability_prompt}]})
+            transformed_data = await execute_request(**kwargs)
             return transformed_data
         except Exception as direct_e:
             direct_error_message = str(direct_e)
@@ -45,9 +51,15 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
 
     # If input length >= 4000, continue with the current logic
     max_attempts = 2
+    errors=[]
+    kwargs = prompt_engine.get_model_parameters("ability-transformation-function")
+    kwargs.update({"model":agent.MODEL_NAME})
+    ability_prompt = prompt_engine.load_prompt("ability-transformation-function", {"description":transformation_description,"attempt":attempt,"errors":errors})
+    messages=[{"role": "system", "content": ability_prompt}]
     for attempt in range(max_attempts):
         try:
-            transformation_function_code = await generate_transformation_function(transformation_description, attempt, error_message=None if attempt == 0 else error_message)
+            kwargs.update({"messages": messages})            
+            transformation_function_code = await execute_request(**kwargs)
             
             exec_globals = {}
             exec(transformation_function_code, {}, exec_globals)
@@ -61,12 +73,24 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
 
         except Exception as e:
             error_message = str(e)
+            messages.append({
+                "role": "user",
+                "content": f"Previous error: {error_message} (Attempt {attempt + 1})"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": transformation_function_code
+            })
+            errors.append(error_message)
             logger.warning(f"Attempt {attempt + 1}: Error processing data: {error_message}")
 
             # On the last attempt, directly ask the model for the transformation result
             if attempt == max_attempts - 1:
                 try:
-                    transformed_data = await direct_transformation_request(transformation_description, input_str)
+                    ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", {"description":transformation_description,"input":input_str})
+                    kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
+                    kwargs.update({"model":agent.MODEL_NAME, "messages": [{"role": "system", "content": ability_prompt}]})
+                    transformed_data = await execute_request(**kwargs)
                     return transformed_data
                 except Exception as final_e:
                     final_error_message = str(final_e)
@@ -74,51 +98,7 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
                     return json.dumps({"error": final_error_message})
 
 
-
-async def generate_transformation_function(description: str, attempt: int, error_message: str = None) -> str:
-    messages = [{
-        "role": "system",
-        "content": f"You are a data transformation expert. Generate a Python function named 'transformation_function' to perform the following transformation: {description}. SImply return the code and nothing more!"
-    }]
-    
-    if error_message:
-        messages.append({
-            "role": "user",
-            "content": f"Previous error: {error_message} (Attempt {attempt + 1})"
-        })
-
-    try:
-        response = await chat_completion_request(
-            messages=messages,
-            model="gpt-3.5-turbo"
-        )
-
-        transformation_function_code = response["choices"][0]["message"]["content"].strip()
-        # Adding the model's response to the message list
-        messages.append({
-            "role": "assistant",
-            "content": transformation_function_code
-        })
-
-        return transformation_function_code
-
-    except Exception as e:
-        error_message = str(e)
-        logger.warning(f"Error generating transformation function: {error_message}")
-        return f"def transformation_function(data): raise Exception('Failed to generate transformation function: {error_message}')"
-
-async def direct_transformation_request(description: str, input_str: str) -> str:
-    messages = [
-        {
-            "role": "system",
-            "content": f"You are a data transformation expert. Given the data '{input_str}', apply the following transformation: {description} and return the result. Simply return the result of the transformation without any explanation or added talk. If the result is already in the form of the transformation description, then you do not need to change anything, return the same result."
-        }
-    ]
-    
-    response = await chat_completion_request(
-        messages=messages,
-        model="gpt-3.5-turbo"
-    )
-    
+async def execute_request(kwargs) -> str:    
+    response = await chat_completion_request(**kwargs)    
     transformed_data = response["choices"][0]["message"]["content"].strip()
     return transformed_data
