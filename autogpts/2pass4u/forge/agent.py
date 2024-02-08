@@ -34,7 +34,7 @@ class JSONEncoderWithBytes(json.JSONEncoder):
     
 class ForgeAgent(Agent):
     MODEL_NAME = "petals/bigscience/bloomz-petals"
-    MODEL_NAME = "petals/petals-team/StableBeluga2"
+    MODEL_NAME = "oobabooga/local-llm"
     TWO_PASS = False
     RETRY_COUNT = 3
     RETRY_WAIT_SECONDS = 5  # wait for 5 seconds before retrying
@@ -154,7 +154,7 @@ class ForgeAgent(Agent):
                         if ability["name"] == "finish" or "File has been written successfully" in output_str:
                             step.is_last = True
                             step.status = "completed"
-                        if "output" in ability:
+                        if ability.get("output"):
                             previous_outputs[ability["output"]] = output
                         last_output=output
 
