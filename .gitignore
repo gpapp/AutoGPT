@@ -161,6 +161,7 @@ CURRENT_BULLETIN.md
 
 # AgBenchmark
 agbenchmark/reports/
+agbenchmark_config
 
 # Nodejs
 package-lock.json
@@ -180,3 +181,5 @@ autogpts/evo.ninja/*
 
 #windows support
 /.vs
+agent.db
+litellm_uuid.txt
