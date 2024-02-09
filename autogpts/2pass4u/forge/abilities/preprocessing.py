@@ -41,7 +41,8 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
         try:
             args={"description":transformation_description,"input":input_str}
             ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", **args)
-            kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
+            kwargs = prompt_engine.get_model_parameters("model-params")
+            kwargs.update(prompt_engine.get_model_parameters("ability-direct-transformation"))
             messages = [{"role": "system", "content": ability_prompt}]
             transformed_data = await execute_request(agent.MODEL_NAME,messages,**kwargs)
             return transformed_data
@@ -53,7 +54,8 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
     # If input length >= 4000, continue with the current logic
     max_attempts = 2
     errors=[]
-    kwargs = prompt_engine.get_model_parameters("ability-transformation-function")
+    kwargs = prompt_engine.get_model_parameters("model-params")
+    kwargs.update(prompt_engine.get_model_parameters("ability-transformation-function"))
     ability_prompt = prompt_engine.load_prompt("ability-transformation-function", {"description":transformation_description,"attempt":attempt,"errors":errors})
     messages=[{"role": "system", "content": ability_prompt}]
     for attempt in range(max_attempts):
@@ -88,7 +90,8 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
                 try:
                     args={"description":transformation_description,"input":input_str}
                     ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", **args)
-                    kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
+                    kwargs = prompt_engine.get_model_parameters("model-params")
+                    kwargs.update(prompt_engine.get_model_parameters("ability-direct-transformation"))
                     messages=[{"role": "system", "content": ability_prompt}]
                     transformed_data = await execute_request(agent.MODEL_NAME,messages,**kwargs)
                     return transformed_data

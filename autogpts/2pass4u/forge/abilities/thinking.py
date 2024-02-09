@@ -32,7 +32,8 @@ async def plan_ahead(agent, task_id: str, to_plan:str) -> str:
             context=""
         propmt_args={"task":to_plan,"context":context,"abilities":agent.abilities.list_abilities_for_prompt()}
         ability_prompt = prompt_engine.load_prompt("ability-plan-ahead", **propmt_args)
-        kwargs = prompt_engine.get_model_parameters("ability-plan-ahead")
+        kwargs = prompt_engine.get_model_parameters("model-params")
+        kwargs.update(prompt_engine.get_model_parameters("ability-plan-ahead"))
         messages=[{"role": "system", "content": ability_prompt}]
         for retry_attempt in range(agent.RETRY_COUNT):
             chat_response = await chat_completion_request(agent.MODEL_NAME, messages, **kwargs)            
@@ -72,6 +73,8 @@ async def think(agent, task_id: str, to_think:str, context:str) -> str:
     try:
         propmt_args={"task":to_think,"context":context}
         ability_prompt = prompt_engine.load_prompt("ability-think", **propmt_args)
+        kwargs = prompt_engine.get_model_parameters("model-params")
+        kwargs.update(prompt_engine.get_model_parameters("ability-think"))
         kwargs = prompt_engine.get_model_parameters("ability-think")
         messages=[{"role": "system", "content": ability_prompt}]
         for retry_attempt in range(agent.RETRY_COUNT):

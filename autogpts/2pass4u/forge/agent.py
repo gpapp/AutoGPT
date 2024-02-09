@@ -72,7 +72,8 @@ class ForgeAgent(Agent):
             task_prompt = prompt_engine.load_prompt("task-step", **task_kwargs)
             self.messages.append({"role": "user", "content": task_prompt})
 
-        system_llm_kwargs = prompt_engine.get_model_parameters("system-format")
+        system_llm_kwargs = prompt_engine.get_model_parameters("model-params")
+        system_llm_kwargs.update(prompt_engine.get_model_parameters("system-format"))
 
         if self.TWO_PASS:
             secpass_kwargs={
