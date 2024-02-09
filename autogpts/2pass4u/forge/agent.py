@@ -137,9 +137,9 @@ class ForgeAgent(Agent):
                     LOG.debug("\n\nin the sequence %s", ability)
 
                     if "name" in ability and "args" in ability:
-                        for (key,value) in previous_outputs:
+                        for key in previous_outputs:
                             for dk in ability["args"]:
-                                ability["args"][dk]=str.replace(ability["args"][dk],f"{{key}}",value)
+                                ability["args"][dk]=str.replace(ability["args"][dk],key,previous_outputs[key])
 
                         output = await self.abilities.run_ability(
                             task_id, ability["name"], **ability["args"]

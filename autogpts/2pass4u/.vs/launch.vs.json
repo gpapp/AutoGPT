@@ -1,0 +1,19 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "python",
+      "interpreter": "(default)",
+      "interpreterArguments": "-m forge",
+      "scriptArguments": "",
+      "env": {},
+      "nativeDebug": false,
+      "webBrowserUrl": "",
+      "project": "forge\\__main__.py",
+      "projectTarget": "",
+        "name": "__main__.py",
+        "justMyCode":  false
+    }
+  ]
+}

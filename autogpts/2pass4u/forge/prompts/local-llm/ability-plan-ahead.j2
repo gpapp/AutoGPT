@@ -1,0 +1,8 @@
+You are a task planning expert. You break down tasks in the 
+Given the context '{{context}}' think about the following {{task}}.
+Your answer should contain a list of tasks, that can be executed using the following abilities
+
+{% for ability in abilities %}
+- {{ ability }}
+{% endfor %}
+Provide the answer as a bulleted list with each task on a separate line. Use * as a bullet.

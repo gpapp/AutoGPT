@@ -39,10 +39,11 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
     # Check input length for direct transformation
     if len(input_str) < 4000:
         try:
-            ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", {"description":transformation_description,"input":input_str})
+            args={"description":transformation_description,"input":input_str}
+            ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", **args)
             kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
-            kwargs.update({"model":agent.MODEL_NAME, "messages": [{"role": "system", "content": ability_prompt}]})
-            transformed_data = await execute_request(**kwargs)
+            messages = [{"role": "system", "content": ability_prompt}]
+            transformed_data = await execute_request(agent.MODEL_NAME,messages,**kwargs)
             return transformed_data
         except Exception as direct_e:
             direct_error_message = str(direct_e)
@@ -53,13 +54,11 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
     max_attempts = 2
     errors=[]
     kwargs = prompt_engine.get_model_parameters("ability-transformation-function")
-    kwargs.update({"model":agent.MODEL_NAME})
     ability_prompt = prompt_engine.load_prompt("ability-transformation-function", {"description":transformation_description,"attempt":attempt,"errors":errors})
     messages=[{"role": "system", "content": ability_prompt}]
     for attempt in range(max_attempts):
         try:
-            kwargs.update({"messages": messages})            
-            transformation_function_code = await execute_request(**kwargs)
+            transformation_function_code = await execute_request(agent.MODEL_NAME,messages,**kwargs)
             
             exec_globals = {}
             exec(transformation_function_code, {}, exec_globals)
@@ -87,10 +86,11 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
             # On the last attempt, directly ask the model for the transformation result
             if attempt == max_attempts - 1:
                 try:
-                    ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", {"description":transformation_description,"input":input_str})
+                    args={"description":transformation_description,"input":input_str}
+                    ability_prompt = prompt_engine.load_prompt("ability-direct-transformation", **args)
                     kwargs = prompt_engine.get_model_parameters("ability-direct-transformation")
-                    kwargs.update({"model":agent.MODEL_NAME, "messages": [{"role": "system", "content": ability_prompt}]})
-                    transformed_data = await execute_request(**kwargs)
+                    messages=[{"role": "system", "content": ability_prompt}]
+                    transformed_data = await execute_request(agent.MODEL_NAME,messages,**kwargs)
                     return transformed_data
                 except Exception as final_e:
                     final_error_message = str(final_e)
@@ -98,7 +98,7 @@ async def process_data(agent, task_id: str, transformation_description: str, inp
                     return json.dumps({"error": final_error_message})
 
 
-async def execute_request(kwargs) -> str:    
-    response = await chat_completion_request(**kwargs)    
+async def execute_request(model, messages, **kwargs) -> str:    
+    response = await chat_completion_request(model,messages,**kwargs)    
     transformed_data = response["choices"][0]["message"]["content"].strip()
     return transformed_data
