@@ -71,7 +71,8 @@ class ForgeAgent(Agent):
             task_prompt = prompt_engine.load_prompt("task-step", **task_kwargs)
             self.messages.append({"role": "user", "content": task_prompt})
 
-        system_llm_kwargs = prompt_engine.get_model_parameters("system-format")
+        system_llm_kwargs = prompt_engine.get_model_parameters("model-params")
+        system_llm_kwargs.update(prompt_engine.get_model_parameters("system-format"))
 
         if self.TWO_PASS:
             secpass_kwargs={
@@ -136,9 +137,9 @@ class ForgeAgent(Agent):
                     LOG.debug("\n\nin the sequence %s", ability)
 
                     if "name" in ability and "args" in ability:
-                        for (key,value) in previous_outputs:
+                        for key in previous_outputs:
                             for dk in ability["args"]:
-                                ability["args"][dk]=str.replace(ability["args"][dk],f"{{key}}",value)
+                                ability["args"][dk]=str.replace(ability["args"][dk],key,previous_outputs[key])
 
                         output = await self.abilities.run_ability(
                             task_id, ability["name"], **ability["args"]
@@ -153,7 +154,7 @@ class ForgeAgent(Agent):
                         if ability["name"] == "finish" or "File has been written successfully" in output_str:
                             step.is_last = True
                             step.status = "completed"
-                        if "output" in ability:
+                        if ability.get("output"):
                             previous_outputs[ability["output"]] = output
                         last_output=output
 

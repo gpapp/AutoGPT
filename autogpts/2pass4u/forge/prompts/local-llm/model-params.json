@@ -1,4 +1,6 @@
 {
+    "api_base": "http://localhost:8080",
+    "instruction_template": "ChatML",
     "max_tokens": 4096,
     "temperature": 1.31,
     "top_p": 0.14,

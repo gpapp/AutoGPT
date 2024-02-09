@@ -1,9 +1,0 @@
-{
-    "instruction_template": "Alpaca",                    
-    "max_tokens" : 4096,
-    "temperature": 0.8,
-    "top_p": 0.85,
-    "top_k": 20,
-    "repetition_penalty": 1.2,
-    "guidance_scale": 1.5
-}
