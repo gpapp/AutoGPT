@@ -33,8 +33,7 @@ class JSONEncoderWithBytes(json.JSONEncoder):
         return super().default(obj)
     
 class ForgeAgent(Agent):
-    MODEL_NAME = "petals/bigscience/bloomz-petals"
-    MODEL_NAME = "petals/petals-team/StableBeluga2"
+    MODEL_NAME = os.environ['MODEL_NAME']
     TWO_PASS = False
     RETRY_COUNT = 3
     RETRY_WAIT_SECONDS = 5  # wait for 5 seconds before retrying
