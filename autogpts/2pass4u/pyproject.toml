@@ -6,7 +6,7 @@ authors = ["Craig Swift <craigswift13@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "forge" }]
-exclude = [
+exclude = [git 
     "**/__pycache__"
 ]
 

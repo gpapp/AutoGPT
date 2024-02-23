@@ -16,7 +16,7 @@ LOG = ForgeLogger(__name__)
 async def chat_completion_request(model, messages, **kwargs) -> ModelResponse:
     """Generate a response to a list of messages using OpenAI's API"""
     try:
-        kwargs["model"] = model
+        kwargs["model"] = kwargs.get("mymodel",model)
         kwargs["messages"] = messages
         import litellm
         litellm.set_verbose=True  

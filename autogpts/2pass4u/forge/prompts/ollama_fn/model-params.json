@@ -1,5 +1,6 @@
 {
-    "api_base": "http://localhost:8080",
+    "api_base": "http://localhost:11434",
+    "mymodel": "ollama/Locutusque_Hercules-3.1-Mistral-7_8:latest",
     "instruction_template": "ChatML",
     "max_tokens": 8096,
     "temperature": 1,

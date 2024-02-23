@@ -4,25 +4,24 @@ You are an expert who can convert any text into JSON format.
 Use JSON to describe steps for completing a task using the following template:
 
 JSON Template:
-{
-    \"thoughts\": {
-        \"text\":  \"thoughts\",
-        \"plan\": \"- short bulleted\\n- list that conveys\\n- long-term plan\",
-        \"speak\": \"thoughts summary to say to user\",
-    },
+```{
     \"abilities_sequence\": [{
         \"ability\": {
             \"name\": {\"type\": \"string\"},
             \"args\": {
                 \"arg1\": \"value1\", etc...
-            }
+            },            
+            "output": "[output variable name]"
         },
     }, ...]
-}
+}```
 
 {% if abilities %}
 ## Abilities Sequence:
-Only link abilities where one's output is the next's input: ability["args"].update({"input": previous_output}).
+Each ability will store their results in the variable defined in the "output" key for use in later steps.
+To use output variables from previous steps include them in strings enclosed in curly brackets e.g. "The most interesting results: {search_result}".
+Abilities can only use known data as arguments or use the "output" variables from previous actions.
+You must NOT use fictional data or example.com URLs in the arguments as placeholders.
 If data needs processing between abilities, split into different responses.
 The "final_output" key will be added to show the result of a previous step, you can use it for future steps.
 Use outputs from previous steps as needed.
