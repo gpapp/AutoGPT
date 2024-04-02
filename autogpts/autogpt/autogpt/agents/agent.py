@@ -6,10 +6,7 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-if TYPE_CHECKING:
-    from autogpt.config import Config
-    from autogpt.models.command_registry import CommandRegistry
-
+import sentry_sdk
 from pydantic import Field
 
 from autogpt.core.configuration import Configurable
@@ -19,6 +16,7 @@ from autogpt.core.resource.model_providers import (
     ChatMessage,
     ChatModelProvider,
 )
+from autogpt.file_storage.base import FileStorage
 from autogpt.llm.api_manager import ApiManager
 from autogpt.logs.log_cycle import (
     CURRENT_CONTEXT_FILE_NAME,
@@ -38,8 +36,8 @@ from autogpt.models.command import CommandOutput
 from autogpt.models.context_item import ContextItem
 
 from .base import BaseAgent, BaseAgentConfiguration, BaseAgentSettings
+from .features.agent_file_manager import AgentFileManagerMixin
 from .features.context import ContextMixin
-from .features.file_workspace import FileWorkspaceMixin
 from .features.watchdog import WatchdogMixin
 from .prompt_strategies.one_shot import (
     OneShotAgentPromptConfiguration,
@@ -49,8 +47,13 @@ from .utils.exceptions import (
     AgentException,
     AgentTerminated,
     CommandExecutionError,
+    DuplicateOperationError,
     UnknownCommandError,
 )
+
+if TYPE_CHECKING:
+    from autogpt.config import Config
+    from autogpt.models.command_registry import CommandRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +73,7 @@ class AgentSettings(BaseAgentSettings):
 
 class Agent(
     ContextMixin,
-    FileWorkspaceMixin,
+    AgentFileManagerMixin,
     WatchdogMixin,
     BaseAgent,
     Configurable[AgentSettings],
@@ -89,6 +92,7 @@ class Agent(
         settings: AgentSettings,
         llm_provider: ChatModelProvider,
         command_registry: CommandRegistry,
+        file_storage: FileStorage,
         legacy_config: Config,
     ):
         prompt_strategy = OneShotAgentPromptStrategy(
@@ -100,6 +104,7 @@ class Agent(
             llm_provider=llm_provider,
             prompt_strategy=prompt_strategy,
             command_registry=command_registry,
+            file_storage=file_storage,
             legacy_config=legacy_config,
         )
 
@@ -185,6 +190,13 @@ class Agent(
             assistant_reply_dict,
         ) = self.prompt_strategy.parse_response_content(llm_response)
 
+        # Check if command_name and arguments are already in the event_history
+        if self.event_history.matches_last_command(command_name, arguments):
+            raise DuplicateOperationError(
+                f"The command {command_name} with arguments {arguments} "
+                f"has been just executed."
+            )
+
         self.log_cycle_handler.log_cycle(
             self.ai_profile.ai_name,
             self.created_at,
@@ -256,6 +268,7 @@ class Agent(
                 logger.warning(
                     f"{command_name}({fmt_kwargs(command_args)}) raised an error: {e}"
                 )
+                sentry_sdk.capture_exception(e)
 
             result_tlength = self.llm_provider.count_tokens(str(result), self.llm.name)
             if result_tlength > self.send_token_limit // 3:
