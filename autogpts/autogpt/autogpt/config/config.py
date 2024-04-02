@@ -1,6 +1,7 @@
 """Configuration class to store the state of bools for different scripts access."""
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -11,6 +12,7 @@ from colorama import Fore
 from pydantic import Field, SecretStr, validator
 
 import autogpt
+from autogpt.app.utils import clean_input
 from autogpt.core.configuration.schema import (
     Configurable,
     SystemSettings,
@@ -20,10 +22,12 @@ from autogpt.core.resource.model_providers.openai import (
     OPEN_AI_CHAT_MODELS,
     OpenAICredentials,
 )
-from autogpt.file_workspace import FileWorkspaceBackendName
+from autogpt.file_storage import FileStorageBackendName
 from autogpt.logs.config import LoggingConfig
 from autogpt.plugins.plugins_config import PluginsConfig
 from autogpt.speech import TTSConfig
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(autogpt.__file__).parent.parent
 AI_SETTINGS_FILE = Path("ai_settings.yaml")
@@ -57,11 +61,11 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     tts_config: TTSConfig = TTSConfig()
     logging: LoggingConfig = LoggingConfig()
 
-    # Workspace
-    workspace_backend: FileWorkspaceBackendName = UserConfigurable(
-        default=FileWorkspaceBackendName.LOCAL,
-        from_env=lambda: FileWorkspaceBackendName(v)
-        if (v := os.getenv("WORKSPACE_BACKEND"))
+    # File storage
+    file_storage_backend: FileStorageBackendName = UserConfigurable(
+        default=FileStorageBackendName.LOCAL,
+        from_env=lambda: FileStorageBackendName(v)
+        if (v := os.getenv("FILE_STORAGE_BACKEND"))
         else None,
     )
 
@@ -80,11 +84,11 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
 
     # Model configuration
     fast_llm: str = UserConfigurable(
-        default="gpt-3.5-turbo-16k",
+        default="gpt-3.5-turbo-0125",
         from_env=lambda: os.getenv("FAST_LLM"),
     )
     smart_llm: str = UserConfigurable(
-        default="gpt-4",
+        default="gpt-4-turbo-preview",
         from_env=lambda: os.getenv("SMART_LLM"),
     )
     temperature: float = UserConfigurable(
@@ -95,7 +99,7 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
         default=False, from_env=lambda: os.getenv("OPENAI_FUNCTIONS", "False") == "True"
     )
     embedding_model: str = UserConfigurable(
-        default="text-embedding-ada-002", from_env="EMBEDDING_MODEL"
+        default="text-embedding-3-small", from_env="EMBEDDING_MODEL"
     )
     browse_spacy_language_model: str = UserConfigurable(
         default="en_core_web_sm", from_env="BROWSE_SPACY_LANGUAGE_MODEL"
@@ -299,34 +303,51 @@ class ConfigBuilder(Configurable[Config]):
 
 def assert_config_has_openai_api_key(config: Config) -> None:
     """Check if the OpenAI API key is set in config.py or as an environment variable."""
-    if not config.openai_credentials:
-        print(
-            Fore.RED
-            + "Please set your OpenAI API key in .env or as an environment variable."
-            + Fore.RESET
+    key_pattern = r"^sk-\w{48}"
+    openai_api_key = (
+        config.openai_credentials.api_key.get_secret_value()
+        if config.openai_credentials
+        else ""
+    )
+
+    # If there's no credentials or empty API key, prompt the user to set it
+    if not openai_api_key:
+        logger.error(
+            "Please set your OpenAI API key in .env or as an environment variable."
         )
-        print("You can get your key from https://platform.openai.com/account/api-keys")
-        openai_api_key = input(
-            "If you do have the key, please enter your OpenAI API key now:\n"
+        logger.info(
+            "You can get your key from https://platform.openai.com/account/api-keys"
         )
-        key_pattern = r"^sk-\w{48}"
+        openai_api_key = clean_input(
+            config, "Please enter your OpenAI API key if you have it:"
+        )
         openai_api_key = openai_api_key.strip()
         if re.search(key_pattern, openai_api_key):
             os.environ["OPENAI_API_KEY"] = openai_api_key
-            config.openai_credentials = OpenAICredentials(
-                api_key=SecretStr(openai_api_key)
-            )
+            if config.openai_credentials:
+                config.openai_credentials.api_key = SecretStr(openai_api_key)
+            else:
+                config.openai_credentials = OpenAICredentials(
+                    api_key=SecretStr(openai_api_key)
+                )
+            print("OpenAI API key successfully set!")
             print(
-                Fore.GREEN
-                + "OpenAI API key successfully set!\n"
-                + Fore.YELLOW
-                + "NOTE: The API key you've set is only temporary.\n"
-                + "For longer sessions, please set it in .env file"
-                + Fore.RESET
+                f"{Fore.YELLOW}NOTE: The API key you've set is only temporary. "
+                f"For longer sessions, please set it in the .env file{Fore.RESET}"
             )
         else:
-            print("Invalid OpenAI API key!")
+            print(f"{Fore.RED}Invalid OpenAI API key{Fore.RESET}")
             exit(1)
+    # If key is set, but it looks invalid
+    elif not re.search(key_pattern, openai_api_key):
+        logger.error(
+            "Invalid OpenAI API key! "
+            "Please set your OpenAI API key in .env or as an environment variable."
+        )
+        logger.info(
+            "You can get your key from https://platform.openai.com/account/api-keys"
+        )
+        exit(1)
 
 
 def _safe_split(s: Union[str, None], sep: str = ",") -> list[str]:

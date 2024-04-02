@@ -8,7 +8,6 @@ from autogpt.core.prompting import (
     LanguageModelClassification,
     PromptStrategy,
 )
-from autogpt.core.prompting.utils import json_loads
 from autogpt.core.resource.model_providers.schema import (
     AssistantChatMessage,
     ChatMessage,
@@ -16,6 +15,7 @@ from autogpt.core.resource.model_providers.schema import (
     CompletionModelFunction,
 )
 from autogpt.core.utils.json_schema import JSONSchema
+from autogpt.core.utils.json_utils import json_loads
 
 logger = logging.getLogger(__name__)
 
@@ -238,18 +238,14 @@ async def generate_agent_profile_for_task(
     prompt = agent_profile_generator.build_prompt(task)
 
     # Call LLM with the string as user input
-    output = (
-        await llm_provider.create_chat_completion(
-            prompt.messages,
-            model_name=app_config.smart_llm,
-            functions=prompt.functions,
-        )
-    ).response
+    output = await llm_provider.create_chat_completion(
+        prompt.messages,
+        model_name=app_config.smart_llm,
+        functions=prompt.functions,
+        completion_parser=agent_profile_generator.parse_response_content,
+    )
 
     # Debug LLM Output
-    logger.debug(f"AI Config Generator Raw Output: {output}")
+    logger.debug(f"AI Config Generator Raw Output: {output.response}")
 
-    # Parse the output
-    ai_profile, ai_directives = agent_profile_generator.parse_response_content(output)
-
-    return ai_profile, ai_directives
+    return output.parsed_result
